@@ -1,4 +1,5 @@
-from datetime import datetime
+import time
+from datetime import date, datetime, timedelta
 from urllib.parse import urljoin
 
 import requests
@@ -10,8 +11,22 @@ HEADERS = {"User-Agent": "Mozilla/5.0 (event-scraper)"}
 BASE_URL = "https://dothebay.com"
 
 
-def fetch() -> list[Event]:
-    resp = requests.get(BASE_URL, headers=HEADERS, timeout=15)
+def fetch(days: int = 14) -> list[Event]:
+    """Fetch one page per day, since the homepage only covers today."""
+    events = []
+    for i in range(days):
+        day = date.today() + timedelta(days=i)
+        url = f"{BASE_URL}/events/{day:%Y/%m/%d}"
+        try:
+            events.extend(_fetch_page(url))
+        except requests.RequestException as e:
+            print(f"  [Do The Bay] {day} failed: {e}")
+        time.sleep(1)  # be polite to the site
+    return events
+
+
+def _fetch_page(url: str) -> list[Event]:
+    resp = requests.get(url, headers=HEADERS, timeout=15)
     resp.raise_for_status()
 
     soup = BeautifulSoup(resp.text, "html.parser")
@@ -28,7 +43,7 @@ def fetch() -> list[Event]:
 
         date_str = date_el.get("content") or date_el.get("datetime")
         try:
-            start = datetime.strptime(date_str, "%Y-%m-%dT%H:%M%z")
+            start = datetime.fromisoformat(date_str)
         except (ValueError, TypeError):
             continue
 

@@ -1,5 +1,6 @@
 import re
-from datetime import datetime
+import time
+from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import requests
@@ -23,8 +24,22 @@ def _parse_price(text: str | None) -> tuple[float | None, str | None]:
     return None, text
 
 
-def fetch(subdomain: str = "sf") -> list[Event]:
-    resp = requests.get(f"https://{subdomain}.funcheap.com", headers=HEADERS, timeout=15)
+def fetch(subdomain: str = "sf", days: int = 14) -> list[Event]:
+    """Fetch one page per day, since the homepage only covers a few days."""
+    events = []
+    for i in range(days):
+        day = date.today() + timedelta(days=i)
+        url = f"https://{subdomain}.funcheap.com/{day:%Y/%m/%d}/"
+        try:
+            events.extend(_fetch_page(url))
+        except requests.RequestException as e:
+            print(f"  [SF Funcheap] {day} failed: {e}")
+        time.sleep(1)  # be polite to the site
+    return events
+
+
+def _fetch_page(url: str) -> list[Event]:
+    resp = requests.get(url, headers=HEADERS, timeout=15)
     resp.raise_for_status()
 
     soup = BeautifulSoup(resp.text, "html.parser")

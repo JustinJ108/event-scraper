@@ -25,6 +25,17 @@ def main():
     events = [e for e in events if e.start >= now]
     events.sort(key=lambda e: e.start)
 
+    # Remove duplicates (same link, or same title at the same time)
+    seen = set()
+    unique = []
+    for e in events:
+        key = (e.title.lower().strip(), e.start)
+        if e.url in seen or key in seen:
+            continue
+        seen.update([e.url, key])
+        unique.append(e)
+    events = unique
+
     print(f"\n{len(events)} upcoming events")
 
     now_local = datetime.now().astimezone()
